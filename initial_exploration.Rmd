@@ -1,0 +1,67 @@
+---
+title: "Loading, Modifying, and Exploring the Job's Dataset"
+author: "Grayson Ricketts"
+date: "11/6/2016"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(dev='pdf', fig.path='Figs/',
+                      fig.width=8.5, fig.height=5,
+                      echo=TRUE, warnings=FALSE)
+
+library(ggplot2)
+theme_set(theme_minimal())
+```
+
+# Load and Factor Data
+
+## Load data and remove response variable
+```{r}
+df <- read.table("job_training_observational_data.txt", header=TRUE)
+
+# Removes the response variable so that the design is not biased by outcomes
+df <- within(df, rm('RE78'))
+categorical <- c("MARR", "NODEGREE", "BLACK", "HISPANIC", "U74", "U75", "OTHER_RACE")
+```
+
+## Add 'OTHER' race to data
+```{r}
+df$OTHER_RACE <- ifelse(df$BLACK == 0 & df$HISPANIC == 0, 1, 0)
+```
+
+# Explore and understand covariates
+
+## Get frequencies of categorical variables to compare proportion of variables between treatment and control
+```{r}
+freq <- data.frame(row.names=c("factor", "freq", "treatment"))
+
+num_treat <- nrow(df[df$TREAT == 1, ])
+num_control <- nrow(df) - num_treat
+
+for (factor in categorical) {
+  freq_treat <- sum(df[df[[factor]] & df$TREAT == 1, c(factor)]) / num_treat
+  freq_control <- sum(df[df[[factor]] & df$TREAT == 0, c(factor)]) / num_control
+  
+  new_freq <- data.frame(factor=c(factor, factor), 
+                        freq=c(freq_treat, freq_control),
+                        treatment=c(TRUE, FALSE))
+  freq <- rbind(freq, new_freq)
+}
+print(freq)
+```
+
+## Distribution of income in '74 and '75 for treatment and control groups (98th Quantile)
+
+```{r}
+df$TREAT_CAT <- factor(df$TREAT, labels=c("Control", "Treatment"))
+
+ggplot(df[df$RE74 < quantile(df$RE74, .98), ], aes(RE74, fill=factor(TREAT_CAT))) +
+  geom_histogram(aes(y=..density..)) +
+  facet_wrap(~TREAT_CAT, nrow=2)
+
+ggplot(df[df$RE74 < quantile(df$RE75, .98), ], aes(RE75, fill=factor(TREAT_CAT))) +
+  geom_histogram(aes(y=..density..)) +
+  facet_wrap(~TREAT_CAT, nrow=2)
+```
+

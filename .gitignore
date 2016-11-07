@@ -1,0 +1,6 @@
+.Rdata
+.Rhistory
+Figs/
+articles/
+*.pdf
+*.docx
