@@ -57,11 +57,15 @@ print(freq)
 df$TREAT_CAT <- factor(df$TREAT, labels=c("Control", "Treatment"))
 
 ggplot(df[df$RE74 < quantile(df$RE74, .98), ], aes(RE74, fill = factor(TREAT_CAT))) +
-  geom_histogram(aes(y = ..density..)) +
-  facet_wrap( ~ TREAT_CAT, nrow = 2)
+  geom_histogram(aes(y = ..density..), alpha = .5, position = "identity")
 
 ggplot(df[df$RE74 < quantile(df$RE75, .98), ], aes(RE75, fill = factor(TREAT_CAT))) +
-  geom_histogram(aes(y = ..density..)) +
-  facet_wrap( ~ TREAT_CAT, nrow = 2)
+  geom_histogram(aes(y = ..density..), alpha = .5, position = "identity")
+
+ggplot(df[df$RE74 < quantile(df$RE75, .98), ], aes(AGE, fill = factor(TREAT_CAT))) +
+  geom_histogram(aes(y = ..density..), alpha = .5, position = "identity")
+
+ggplot(df[df$RE74 < quantile(df$RE75, .98), ], aes(EDUC, fill = factor(TREAT_CAT))) +
+  geom_histogram(aes(y = ..density..), alpha = .5, position = "identity", binwidth = 1)
 ```
 
