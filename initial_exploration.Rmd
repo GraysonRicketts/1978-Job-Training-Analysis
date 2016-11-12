@@ -6,9 +6,9 @@ output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(dev='pdf', fig.path='Figs/',
-                      fig.width=8.5, fig.height=5,
-                      echo=TRUE, warnings=FALSE)
+knitr::opts_chunk$set(dev='png', fig.path='Figs/',
+                      fig.width = 8.5, fig.height = 5,
+                      echo = TRUE, warnings = FALSE)
 
 library(ggplot2)
 theme_set(theme_minimal())
@@ -18,7 +18,7 @@ theme_set(theme_minimal())
 
 ## Load data and remove response variable
 ```{r}
-df <- read.table("job_training_observational_data.txt", header=TRUE)
+df <- read.table("job_training_observational_data.txt", header = TRUE)
 
 # Removes the response variable so that the design is not biased by outcomes
 df <- within(df, rm('RE78'))
@@ -34,7 +34,7 @@ df$OTHER_RACE <- ifelse(df$BLACK == 0 & df$HISPANIC == 0, 1, 0)
 
 ## Get frequencies of categorical variables to compare proportion of variables between treatment and control
 ```{r}
-freq <- data.frame(row.names=c("factor", "freq", "treatment"))
+freq <- data.frame(row.names = c("factor", "freq", "treatment"))
 
 num_treat <- nrow(df[df$TREAT == 1, ])
 num_control <- nrow(df) - num_treat
@@ -56,12 +56,12 @@ print(freq)
 ```{r}
 df$TREAT_CAT <- factor(df$TREAT, labels=c("Control", "Treatment"))
 
-ggplot(df[df$RE74 < quantile(df$RE74, .98), ], aes(RE74, fill=factor(TREAT_CAT))) +
-  geom_histogram(aes(y=..density..)) +
-  facet_wrap(~TREAT_CAT, nrow=2)
+ggplot(df[df$RE74 < quantile(df$RE74, .98), ], aes(RE74, fill = factor(TREAT_CAT))) +
+  geom_histogram(aes(y = ..density..)) +
+  facet_wrap( ~ TREAT_CAT, nrow = 2)
 
-ggplot(df[df$RE74 < quantile(df$RE75, .98), ], aes(RE75, fill=factor(TREAT_CAT))) +
-  geom_histogram(aes(y=..density..)) +
-  facet_wrap(~TREAT_CAT, nrow=2)
+ggplot(df[df$RE74 < quantile(df$RE75, .98), ], aes(RE75, fill = factor(TREAT_CAT))) +
+  geom_histogram(aes(y = ..density..)) +
+  facet_wrap( ~ TREAT_CAT, nrow = 2)
 ```
 
