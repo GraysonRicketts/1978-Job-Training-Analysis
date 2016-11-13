@@ -29,18 +29,18 @@ df <- within(df, rm("TYPE"))
 ## Standard Model
 ```{r}
 df <- within(df, rm("TYPE"))
-model <- glm(TREAT ~ ., data = df, family=binomial(link = "logit"))
+model <- glm(TREAT ~ ., family = binomial(link = "logit"), data = df)
 summary(model)
 ```
 
 ## Reduced Model
 ```{r}
+# Reduces model based on non-significant predictors in full model
 bad.factors <- c("NODEGREE", "EDUC", "RE74")
 df.reduced <- df[ , !(names(df) %in% bad.factors)]
 
-model.reduced <- glm(TREAT ~ ., data = df.reduced, family=binomial(link = "logit"))
+model.reduced <- glm(TREAT ~ ., family = binomial(link = "logit"), data = df.reduced)
 summary(model.reduced)
-summary(model)
 ```
 
 ## Model Checking
@@ -66,7 +66,7 @@ pchisq(deviance(model), df.residual(model))
 pchisq(deviance(model.reduced), df.residual(model.reduced))
 ```
 
-### Hosmer-Lemeshow test
+### Hosmer-Lemeshow Test
 ```{r}
 hosmerlem <- function (y, yhat, g = 10) {
    cutyhat <- cut(yhat, breaks = quantile(yhat, probs = seq(0, 1, 1/g)),
@@ -83,4 +83,35 @@ hosmerlem(y = df$TREAT, yhat = fitted(model.reduced))
 
 ## Summary of Model Checking
 It appears that both models are accurate in their prediction. This can be seen in the low Chi-Squared probabilities of the standard Chi-Squared Goodness-of-Fit-Test and the Hosmer-Lemeshow test.
+
+## Using Estimated Propensity Scores to Create Predicted Values
+```{r}
+# Attach propensity score value to dataset
+
+# TODO: Find better way to include estimated propensity score values
+
+psvalue <- predict(model, type = "response")
+psvalue.reduced <- predict(model.reduced, type = "response")
+
+ggplot(df[df$RE74 < quantile(df$RE74, .98), ], aes(psvalue, fill = factor(TREAT))) +
+  geom_histogram(aes(y = ..density..), alpha = .5, position = "identity")
+ggplot(df[df$RE74 < quantile(df$RE74, .98), ], aes(psvalue.reduced, fill = factor(TREAT))) +
+  geom_histogram(aes(y = ..density..), alpha = .5, position = "identity")
+```
+
+# Generalized Boosted Model (GBM) Propensity Scores
+
+```{r}
+library("gbm")
+
+# Suggested comes from Guo, 2001
+model.generalized.suggested <- gbm(TREAT ~ ., distribution = "bernoulli", data = df, 
+                         train.fraction = 0.5, 
+                         interaction.depth = 4, 
+                         shrinkage = 0.0005)
+model.generalized.default <- gbm(TREAT ~ ., distribution = "bernoulli", data=df)
+
+summary(model.generalized.suggested)
+summary(model.generalized.default)
+```
 
