@@ -26,12 +26,14 @@ df <- within(df, rm("TYPE"))
 
 # Logistic Regression of Propensity Scores
 
+## Standard Model
 ```{r}
 df <- within(df, rm("TYPE"))
 model <- glm(TREAT ~ ., data = df, family=binomial(link = "logit"))
 summary(model)
 ```
 
+## Reduced Model
 ```{r}
 bad.factors <- c("NODEGREE", "EDUC", "RE74")
 df.reduced <- df[ , !(names(df) %in% bad.factors)]
@@ -41,9 +43,44 @@ summary(model.reduced)
 summary(model)
 ```
 
+## Model Checking
+
+### Half-Normal Plot of Residuals
+```{r}
+library(faraway)
+halfnorm(residuals(model))
+halfnorm(residuals(model.reduced))
+```
+
+### Chi-Squared Goodness-of-Fit-Test with ANOVA
 ```{r}
 anova(model, test = "Chisq")
 anova(model.reduced, test = "Chisq")
 ```
 
+### Chi-Squared Goodness-of-Fit-Test for Model
+```{r}
+sum(residuals(model, type = "pearson")^2)
+deviance(model)
+pchisq(deviance(model), df.residual(model))
+pchisq(deviance(model.reduced), df.residual(model.reduced))
+```
+
+### Hosmer-Lemeshow test
+```{r}
+hosmerlem <- function (y, yhat, g = 10) {
+   cutyhat <- cut(yhat, breaks = quantile(yhat, probs = seq(0, 1, 1/g)),
+                  include.lowest = TRUE)
+   obs <- xtabs(cbind(1 - y, y) ~ cutyhat)
+   expect <- xtabs(cbind(1 - yhat, yhat) ~ cutyhat)
+   chisq <- sum((obs - expect)^2 / expect)
+   P <- 1 - pchisq(chisq, g - 2)
+   c("X^2" = chisq, Df = g - 2, "P(>Chi)" = P)
+}
+hosmerlem(y = df$TREAT, yhat = fitted(model))
+hosmerlem(y = df$TREAT, yhat = fitted(model.reduced))
+```
+
+## Summary of Model Checking
+It appears that both models are accurate in their prediction. This can be seen in the low Chi-Squared probabilities of the standard Chi-Squared Goodness-of-Fit-Test and the Hosmer-Lemeshow test.
 
