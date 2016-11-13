@@ -19,18 +19,31 @@ df <- read.table("job_training_observational_data.txt", header = TRUE)
 
 # Removes the response variable so that the design is not biased by outcomes
 df <- within(df, rm("RE78"))
+
+# Removes redundant variable already represented by TREAT
+df <- within(df, rm("TYPE"))
 ```
 
 # Logistic Regression of Propensity Scores
-
-```{r}
-model <- glm(TREAT ~ ., data = df, family=binomial(link = "logit"), maxit = 100)
-summary(model)
-```
 
 ```{r}
 df <- within(df, rm("TYPE"))
 model <- glm(TREAT ~ ., data = df, family=binomial(link = "logit"))
 summary(model)
 ```
+
+```{r}
+bad.factors <- c("NODEGREE", "EDUC", "RE74")
+df.reduced <- df[ , !(names(df) %in% bad.factors)]
+
+model.reduced <- glm(TREAT ~ ., data = df.reduced, family=binomial(link = "logit"))
+summary(model.reduced)
+summary(model)
+```
+
+```{r}
+anova(model, test = "Chisq")
+anova(model.reduced, test = "Chisq")
+```
+
 
