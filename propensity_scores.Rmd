@@ -15,21 +15,23 @@ theme_set(theme_minimal())
 ```
 
 ```{r, echo=FALSE}
-df <- read.table("job_training_observational_data.txt", header = TRUE)
+lalonde.full <- read.table("job_training_observational_data.txt", header = TRUE)
+lalonde <- read.table("job_training_observational_data.txt", header = TRUE)
 
 # Removes the response variable so that the design is not biased by outcomes
-df <- within(df, rm("RE78"))
+lalonde <- within(lalonde, rm("RE78"))
 
 # Removes redundant variable already represented by TREAT
-df <- within(df, rm("TYPE"))
+lalonde.full <- within(lalonde.full, rm("TYPE"))
+lalonde <- within(lalonde, rm("TYPE"))
 ```
 
 # Logistic Regression of Propensity Scores
 
 ## Standard Model
 ```{r}
-df <- within(df, rm("TYPE"))
-model <- glm(TREAT ~ ., family = binomial(link = "logit"), data = df)
+lalonde <- within(lalonde, rm("TYPE"))
+model <- glm(TREAT ~ ., family = binomial(link = "logit"), data = lalonde)
 summary(model)
 ```
 
@@ -37,9 +39,9 @@ summary(model)
 ```{r}
 # Reduces model based on non-significant predictors in full model
 bad.factors <- c("NODEGREE", "EDUC", "RE74")
-df.reduced <- df[ , !(names(df) %in% bad.factors)]
+lalonde.reduced <- lalonde[ , !(names(lalonde) %in% bad.factors)]
 
-model.reduced <- glm(TREAT ~ ., family = binomial(link = "logit"), data = df.reduced)
+model.reduced <- glm(TREAT ~ ., family = binomial(link = "logit"), data = lalonde.reduced)
 summary(model.reduced)
 ```
 
@@ -77,8 +79,8 @@ hosmerlem <- function (y, yhat, g = 10) {
    P <- 1 - pchisq(chisq, g - 2)
    c("X^2" = chisq, Df = g - 2, "P(>Chi)" = P)
 }
-hosmerlem(y = df$TREAT, yhat = fitted(model))
-hosmerlem(y = df$TREAT, yhat = fitted(model.reduced))
+hosmerlem(y = lalonde$TREAT, yhat = fitted(model))
+hosmerlem(y = lalonde$TREAT, yhat = fitted(model.reduced))
 ```
 
 ## Summary of Model Checking
@@ -86,16 +88,16 @@ It appears that both models are accurate in their prediction. This can be seen i
 
 ## Using Estimated Propensity Scores to Create Predicted Values
 ```{r}
-# Attach propensity score value to dataset
+# Attach propensity score value to full dataset
+lalonde.full$propscore.log <- predict(model, type = "response")
+lalonde.full$propscore.log.reduced <- predict(model.reduced, type = "response")
 
-# TODO: Find better way to include estimated propensity score values
-
-psvalue <- predict(model, type = "response")
-psvalue.reduced <- predict(model.reduced, type = "response")
-
-ggplot(df[df$RE74 < quantile(df$RE74, .98), ], aes(psvalue, fill = factor(TREAT))) +
+ggplot(lalonde.full[lalonde.full$RE74 < quantile(lalonde.full$RE74, .98), ], 
+       aes(propscore.log, fill = factor(TREAT))) +
   geom_histogram(aes(y = ..density..), alpha = .5, position = "identity")
-ggplot(df[df$RE74 < quantile(df$RE74, .98), ], aes(psvalue.reduced, fill = factor(TREAT))) +
+
+ggplot(lalonde.full[lalonde.full$RE74 < quantile(lalonde.full$RE74, .98), ], 
+       aes(propscore.log.reduced, fill = factor(TREAT))) +
   geom_histogram(aes(y = ..density..), alpha = .5, position = "identity")
 ```
 
@@ -104,14 +106,16 @@ ggplot(df[df$RE74 < quantile(df$RE74, .98), ], aes(psvalue.reduced, fill = facto
 ```{r}
 library("gbm")
 
-# Suggested comes from Guo, 2001
-model.generalized.suggested <- gbm(TREAT ~ ., distribution = "bernoulli", data = df, 
+# Suggested parameters comes from Guo, 2001
+model.generalized.suggested <- gbm(TREAT ~ ., distribution = "bernoulli", data = lalonde, 
                          train.fraction = 0.5, 
                          interaction.depth = 4, 
                          shrinkage = 0.0005)
-model.generalized.default <- gbm(TREAT ~ ., distribution = "bernoulli", data=df)
+model.generalized.default <- gbm(TREAT ~ ., distribution = "bernoulli", data = lalonde)
 
 summary(model.generalized.suggested)
 summary(model.generalized.default)
+
+lalonde.full$propscore.gbm <- predict(model.generalized.suggested, type = "response")
 ```
 

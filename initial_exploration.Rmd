@@ -18,18 +18,18 @@ theme_set(theme_minimal())
 
 ## Load data
 ```{r}
-df <- read.table("job_training_observational_data.txt", header = TRUE)
+lalonde <- read.table("job_training_observational_data.txt", header = TRUE)
 
 # Removes the response variable so that the design is not biased by outcomes
-df <- within(df, rm('RE78'))
+lalonde <- within(lalonde, rm('RE78'))
 
 # Removes redundant variable already represented by TREAT
-df <- within(df, rm("TYPE"))
+lalonde <- within(lalonde, rm("TYPE"))
 ```
 
 ## Add 'OTHER' race to data
 ```{r}
-df$OTHER.RACE <- ifelse(df$BLACK == 0 & df$HISPANIC == 0, 1, 0)
+lalonde$OTHER.RACE <- ifelse(lalonde$BLACK == 0 & lalonde$HISPANIC == 0, 1, 0)
 ```
 
 # Explore and understand covariates
@@ -39,12 +39,12 @@ df$OTHER.RACE <- ifelse(df$BLACK == 0 & df$HISPANIC == 0, 1, 0)
 categorical <- c("MARR", "NODEGREE", "BLACK", "HISPANIC", "U74", "U75", "OTHER.RACE")
 freq <- data.frame(row.names = c("factor", "freq", "treatment"))
 
-num.treat <- nrow(df[df$TREAT == 1, ])
-num.control <- nrow(df) - num.treat
+num.treat <- nrow(lalonde[lalonde$TREAT == 1, ])
+num.control <- nrow(lalonde) - num.treat
 
 for (factor in categorical) {
-  freq.treat <- sum(df[df[[factor]] & df$TREAT == 1, c(factor)]) / num.treat
-  freq.control <- sum(df[df[[factor]] & df$TREAT == 0, c(factor)]) / num.control
+  freq.treat <- sum(lalonde[lalonde[[factor]] & lalonde$TREAT == 1, c(factor)]) / num.treat
+  freq.control <- sum(lalonde[lalonde[[factor]] & lalonde$TREAT == 0, c(factor)]) / num.control
   
   freq.new <- data.frame(factor=c(factor, factor), 
                         freq=c(freq.treat, freq.control),
@@ -57,18 +57,18 @@ print(freq)
 ## Distribution of income in '74 and '75 for treatment and control groups (98th Quantile)
 
 ```{r}
-df$TREAT.CAT <- factor(df$TREAT, labels=c("Control", "Treatment"))
+lalonde$TREAT.CAT <- factor(lalonde$TREAT, labels=c("Control", "Treatment"))
 
-ggplot(df[df$RE74 < quantile(df$RE74, .98), ], aes(RE74, fill = factor(TREAT.CAT))) +
+ggplot(lalonde[lalonde$RE74 < quantile(lalonde$RE74, .98), ], aes(RE74, fill = factor(TREAT.CAT))) +
   geom_histogram(aes(y = ..density..), alpha = .5, position = "identity")
 
-ggplot(df[df$RE74 < quantile(df$RE75, .98), ], aes(RE75, fill = factor(TREAT.CAT))) +
+ggplot(lalonde[lalonde$RE74 < quantile(lalonde$RE75, .98), ], aes(RE75, fill = factor(TREAT.CAT))) +
   geom_histogram(aes(y = ..density..), alpha = .5, position = "identity")
 
-ggplot(df[df$RE74 < quantile(df$RE75, .98), ], aes(AGE, fill = factor(TREAT.CAT))) +
+ggplot(lalonde[lalonde$RE74 < quantile(lalonde$RE75, .98), ], aes(AGE, fill = factor(TREAT.CAT))) +
   geom_histogram(aes(y = ..density..), alpha = .5, position = "identity")
 
-ggplot(df[df$RE74 < quantile(df$RE75, .98), ], aes(EDUC, fill = factor(TREAT.CAT))) +
+ggplot(lalonde[lalonde$RE74 < quantile(lalonde$RE75, .98), ], aes(EDUC, fill = factor(TREAT.CAT))) +
   geom_histogram(aes(y = ..density..), alpha = .5, position = "identity", binwidth = 1)
 ```
 
