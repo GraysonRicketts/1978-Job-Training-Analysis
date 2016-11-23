@@ -12,26 +12,31 @@ knitr::opts_chunk$set(dev = 'pdf', fig.path = 'Figs/',
 
 library(ggplot2)
 theme_set(theme_minimal())
+
+library("faraway")
+library("RItools")
+library("gbm")
+library("optmatch")
 ```
 
 ```{r, echo=FALSE}
-lalonde.full <- read.table("job_training_observational_data.txt", header = TRUE)
 lalonde <- read.table("job_training_observational_data.txt", header = TRUE)
+
+# Removes redundant variable already represented by TREAT
+lalonde <- within(lalonde, rm("TYPE"))
+
+# Keep dataset with RE78 values
+lalonde.full <- lalonde
 
 # Removes the response variable so that the design is not biased by outcomes
 lalonde <- within(lalonde, rm("RE78"))
-
-# Removes redundant variable already represented by TREAT
-lalonde.full <- within(lalonde.full, rm("TYPE"))
-lalonde <- within(lalonde, rm("TYPE"))
 ```
 
 # Logistic Regression of Propensity Scores
 
 ## Standard Model
 ```{r}
-lalonde <- within(lalonde, rm("TYPE"))
-model <- glm(TREAT ~ ., family = binomial(link = "logit"), data = lalonde)
+model <- glm(TREAT ~ . , family = binomial(link = "logit"), data = lalonde)
 summary(model)
 ```
 
@@ -41,7 +46,7 @@ summary(model)
 bad.factors <- c("NODEGREE", "EDUC", "RE74")
 lalonde.reduced <- lalonde[ , !(names(lalonde) %in% bad.factors)]
 
-model.reduced <- glm(TREAT ~ ., family = binomial(link = "logit"), data = lalonde.reduced)
+model.reduced <- glm(TREAT ~ . , family = binomial(link = "logit"), data = lalonde.reduced)
 summary(model.reduced)
 ```
 
@@ -49,15 +54,8 @@ summary(model.reduced)
 
 ### Half-Normal Plot of Residuals
 ```{r}
-library(faraway)
 halfnorm(residuals(model))
 halfnorm(residuals(model.reduced))
-```
-
-### Chi-Squared Goodness-of-Fit-Test with ANOVA
-```{r}
-anova(model, test = "Chisq")
-anova(model.reduced, test = "Chisq")
 ```
 
 ### Chi-Squared Goodness-of-Fit-Test for Model
@@ -66,6 +64,10 @@ sum(residuals(model, type = "pearson")^2)
 deviance(model)
 pchisq(deviance(model), df.residual(model))
 pchisq(deviance(model.reduced), df.residual(model.reduced))
+
+xBalance(TREAT ~ . - (TREAT) , 
+  data = lalonde.reduced, 
+  report = c("chisquare.test"))
 ```
 
 ### Hosmer-Lemeshow Test
@@ -104,8 +106,6 @@ ggplot(lalonde.full[lalonde.full$RE74 < quantile(lalonde.full$RE74, .98), ],
 # Generalized Boosted Model (GBM) Propensity Scores
 
 ```{r}
-library("gbm")
-
 # Suggested parameters comes from Guo, 2001
 model.generalized.suggested <- gbm(TREAT ~ ., distribution = "bernoulli", data = lalonde, 
                          train.fraction = 0.5, 
@@ -118,4 +118,24 @@ summary(model.generalized.default)
 
 lalonde.full$propscore.gbm <- predict(model.generalized.suggested, type = "response")
 ```
+
+# Matching
+```{r}
+match.pair <- pairmatch(mdist(model.reduced), data = lalonde.reduced)
+match.full <- fullmatch(mdist(model.reduced), data = lalonde.reduced)
+```
+
+## Balance Testing
+```{r}
+(allbalance <- xBalance(TREAT ~ . -(TREAT) , 
+    data = lalonde.reduced, 
+    report = c("chisquare.test", "std.diffs"), 
+    strata = data.frame(original = factor("none"), match.reduced, match.full)))
+```
+
+Full match has a p-value of 0.917 which is perfect. It appears that the imbalances have been sorted out.
+
+# Analysis
+
+
 
