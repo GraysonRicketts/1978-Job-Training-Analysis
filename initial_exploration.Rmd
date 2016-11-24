@@ -72,3 +72,10 @@ ggplot(lalonde[lalonde$RE74 < quantile(lalonde$RE75, .98), ], aes(EDUC, fill = f
   geom_histogram(aes(y = ..density..), alpha = .5, position = "identity", binwidth = 1)
 ```
 
+## Balance Testing
+```{r}
+xBalance(TREAT ~ . , 
+  data = lalonde, 
+  report = c("chisquare.test"))
+```
+

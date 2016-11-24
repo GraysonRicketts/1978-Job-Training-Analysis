@@ -25,8 +25,8 @@ lalonde <- read.table("job_training_observational_data.txt", header = TRUE)
 # Removes redundant variable already represented by TREAT
 lalonde <- within(lalonde, rm("TYPE"))
 
-# Keep dataset with RE78 values
-lalonde.full <- lalonde
+# Keep RE78 seperate for analysis at the end
+RE78 <- lalonde$RE78
 
 # Removes the response variable so that the design is not biased by outcomes
 lalonde <- within(lalonde, rm("RE78"))
@@ -39,6 +39,7 @@ lalonde <- within(lalonde, rm("RE78"))
 model <- glm(TREAT ~ . , family = binomial(link = "logit"), data = lalonde)
 summary(model)
 ```
+Warning message suggests the data is linearly seperable with respsect to TREAT. 
 
 ## Reduced Model
 ```{r}
@@ -60,14 +61,8 @@ halfnorm(residuals(model.reduced))
 
 ### Chi-Squared Goodness-of-Fit-Test for Model
 ```{r}
-sum(residuals(model, type = "pearson")^2)
-deviance(model)
 pchisq(deviance(model), df.residual(model))
 pchisq(deviance(model.reduced), df.residual(model.reduced))
-
-xBalance(TREAT ~ . - (TREAT) , 
-  data = lalonde.reduced, 
-  report = c("chisquare.test"))
 ```
 
 ### Hosmer-Lemeshow Test
@@ -82,21 +77,15 @@ hosmerlem <- function (y, yhat, g = 10) {
    c("X^2" = chisq, Df = g - 2, "P(>Chi)" = P)
 }
 hosmerlem(y = lalonde$TREAT, yhat = fitted(model))
-hosmerlem(y = lalonde$TREAT, yhat = fitted(model.reduced))
+hosmerlem(y = lalonde.reduced$TREAT, yhat = fitted(model.reduced))
 ```
 
 ## Summary of Model Checking
-It appears that both models are accurate in their prediction. This can be seen in the low Chi-Squared probabilities of the standard Chi-Squared Goodness-of-Fit-Test and the Hosmer-Lemeshow test.
+It appears that both models are accurate in their prediction. This can be seen in the low Chi-Squared probabilities of the standard Chi-Squared Goodness-of-Fit-Test and the Hosmer-Lemeshow test. However, the reduced model seems better, so that is what will be used with in the future.
 
 ## Using Estimated Propensity Scores to Create Predicted Values
 ```{r}
-# Attach propensity score value to full dataset
-lalonde.full$propscore.log <- predict(model, type = "response")
 lalonde.reduced$propscore.log <- predict(model.reduced, type = "response")
-
-ggplot(lalonde.full[lalonde.full$RE74 < quantile(lalonde.full$RE74, .98), ], 
-       aes(propscore.log, fill = factor(TREAT))) +
-  geom_histogram(aes(y = ..density..), alpha = .5, position = "identity")
 
 ggplot(lalonde.reduced[lalonde.reduced$RE75 < quantile(lalonde.reduced$RE75, .98), ], 
        aes(propscore.log, fill = factor(TREAT))) +
@@ -107,17 +96,25 @@ ggplot(lalonde.reduced[lalonde.reduced$RE75 < quantile(lalonde.reduced$RE75, .98
 
 ```{r}
 # Suggested parameters comes from Guo, 2001
-model.generalized.suggested <- gbm(TREAT ~ ., distribution = "bernoulli", data = lalonde, 
-                         train.fraction = 0.5, 
-                         interaction.depth = 4, 
-                         shrinkage = 0.0005)
-model.generalized.default <- gbm(TREAT ~ ., distribution = "bernoulli", data = lalonde)
+model.generalized.suggested <- gbm(TREAT ~ . - (propscore.log) , 
+                                   distribution = "bernoulli", 
+                                   data = lalonde.reduced, 
+                                   train.fraction = 0.5, 
+                                   interaction.depth = 4, 
+                                   shrinkage = 0.0005)
+model.generalized.default <- gbm(TREAT ~ . - (propscore.log) , 
+                                 distribution = "bernoulli", 
+                                 data = lalonde.reduced)
 
 summary(model.generalized.suggested)
 summary(model.generalized.default)
-
-lalonde.full$propscore.gbm <- predict(model.generalized.suggested, type = "response")
 ```
+The suggested parameters for the GBM produced better results so that is what was used to calculate the propensity scores for GBMs.
+
+```{r}
+lalonde.reduced$propscore.gbm <- predict(model.generalized.suggested, type = "response")
+```
+
 
 # Matching
 ```{r}
@@ -127,44 +124,43 @@ match.full <- fullmatch(mdist(model.reduced), data = lalonde.reduced)
 
 ## Balance Testing
 ```{r}
-(allbalance <- xBalance(TREAT ~ . -(TREAT) , 
+(allbalance <- xBalance(TREAT ~ . - (propscore.log + propscore.gbm) , 
     data = lalonde.reduced, 
     report = c("chisquare.test", "std.diffs"), 
-    strata = data.frame(original = factor("none"), match.reduced, match.full)))
+    strata = data.frame(original = factor("none"), match.pair, match.full)))
+```
+Full match has a p-value of 0.917 which indicates that using the full match sorts out the imbalances between treatment and control.
+
+# Weighting
+
+## Weights for ATE
+```{r}
+weight.ATE <- ifelse(lalonde.reduced$TREAT == 1, 1 / lalonde.reduced$propscore.log, 
+                                     1 / (1 - lalonde.reduced$propscore.log))
+gweight.ATE <- ifelse(lalonde.reduced$TREAT == 1, 1 / lalonde.reduced$propscore.gbm, 
+                                     1 / (1 - lalonde.reduced$propscore.gbm))
 ```
 
-Full match has a p-value of 0.917 which is perfect. It appears that the imbalances have been sorted out.
+## Check balance of weights
+```{r}
+summary(lm(RE75 ~ TREAT, data = lalonde.reduced, weights = weight.ATE))
+summary(lm(RE75 ~ TREAT, data = lalonde.reduced, weights = gweight.ATE))
+```
+Balancing using wieghts seems to be really bad.
 
 # Analysis
 
 ## Weighted Analysis
-
-### Weights for ATE
-```{r}
-lalonde.reduced$weight.ATE <- ifelse(lalonde.reduced$TREAT == 1, 1 / lalonde.reduced$propscore.log, 
-                                     1 / (1 - lalonde.reduced$propscore.log))
-lalonde.full$gweight.ATE <- ifelse(lalonde.full$TREAT == 1, 1 / lalonde.full$propscore.gbm, 
-                                     1 / (1 - lalonde.full$propscore.gbm))
-```
-
-### Check balance of weights
-```{r}
-summary(lm(RE75 ~ TREAT, data = lalonde.reduced, weights = lalonde.reduced$weight.ATE))
-summary(lm(RE75 ~ TREAT, data = lalonde.full, weights = lalonde.full$gweight.ATE))
-```
-
-Balancing using wieghts seems to be really bad.
-
-### Analysis
 ```{r}
 # Add back RE78
-lalonde.reduced$RE78 <- lalonde.full$RE78
-predictor.model.log <- lm(RE78 ~ . - (propscore.log + propscore.log.reduced + weight.ATE),
+lalonde.reduced$RE78 <- RE78
+
+predictor.model.log <- lm(RE78 ~ . - (propscore.log + propscore.gbm),
                           data = lalonde.reduced,
-                          weights = lalonde.reduced$gweight.ATE)
-predictor.model.gbm <- lm(RE78 ~ . - (propscore.log + propscore.log.reduced + propscore.gbm + gweight.ATE),
-                          data = lalonde.full,
-                          weights = lalonde.full$gweight.ATE)
+                          weights = weight.ATE)
+predictor.model.gbm <- lm(RE78 ~ . - (propscore.log + propscore.gbm),
+                          data = lalonde.reduced,
+                          weights = gweight.ATE)
 
 anova(predictor.model.log)
 anova(predictor.model.gbm)
@@ -173,4 +169,10 @@ anova(predictor.model.gbm)
 ## Matched Analysis
 
 ## Naive Analysis
+```{r}
+predictor.naive <- lm(RE78 ~ . , lalonde)
+anova(predictor.naive)
+```
 
+                          
+                          
