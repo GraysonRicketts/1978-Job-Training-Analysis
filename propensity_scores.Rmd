@@ -150,28 +150,40 @@ Balancing using wieghts seems to be really bad.
 
 # Analysis
 
-## Weighted Analysis
 ```{r}
-# Add back RE78
+# Add back RE78 for analysis
 lalonde.reduced$RE78 <- RE78
-
-predictor.model.log <- lm(RE78 ~ . - (propscore.log + propscore.gbm),
-                          data = lalonde.reduced,
-                          weights = weight.ATE)
-predictor.model.gbm <- lm(RE78 ~ . - (propscore.log + propscore.gbm),
-                          data = lalonde.reduced,
-                          weights = gweight.ATE)
-
-anova(predictor.model.log)
-anova(predictor.model.gbm)
 ```
 
 ## Matched Analysis
+```{r}
+predictor.match <- lm(lalonde.reduced$RE78 ~ lalonde.reduced$TREAT + match.full)
+
+anova(predictor.match)
+# CI goes here
+```
+
+
+## Weighted Analysis
+```{r}
+predictor.weighted.log <- lm(RE78 ~ . - (propscore.log + propscore.gbm),
+                             data = lalonde.reduced,
+                             weights = weight.ATE)
+summary(predictor.weighted.log)
+confint(predictor.weighted.log)
+
+# predictor.weighted.gbm <- lm(RE78 ~ . - (propscore.log + propscore.gbm),
+#                              data = lalonde.reduced,
+#                              weights = gweight.ATE)
+# summary(predictor.weighted.gbm)
+# confint(predictor.weighted.gbm, "TREAT")
+```
 
 ## Naive Analysis
 ```{r}
-predictor.naive <- lm(RE78 ~ . , lalonde)
-anova(predictor.naive)
+predictor.naive <- lm(RE78 ~ . , data = lalonde)
+summary(predictor.naive)
+confint(predictor.naive)
 ```
 
                           
