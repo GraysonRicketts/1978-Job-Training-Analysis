@@ -1,6 +1,8 @@
 .Rdata
 .Rhistory
 Figs/
+exploration_figs/
+propscore_figs/
 articles/
 *.pdf
 *.docx
