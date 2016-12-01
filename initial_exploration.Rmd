@@ -6,7 +6,7 @@ output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(dev='png', fig.path='Figs/',
+knitr::opts_chunk$set(dev='png', fig.path='exploration_figs/',
                       fig.width = 8.5, fig.height = 5,
                       echo = TRUE, warnings = FALSE)
 
@@ -70,12 +70,5 @@ ggplot(lalonde[lalonde$RE74 < quantile(lalonde$RE75, .98), ], aes(AGE, fill = fa
 
 ggplot(lalonde[lalonde$RE74 < quantile(lalonde$RE75, .98), ], aes(EDUC, fill = factor(TREAT.CAT))) +
   geom_histogram(aes(y = ..density..), alpha = .5, position = "identity", binwidth = 1)
-```
-
-## Balance Testing
-```{r}
-xBalance(TREAT ~ . , 
-  data = lalonde, 
-  report = c("chisquare.test"))
 ```
 

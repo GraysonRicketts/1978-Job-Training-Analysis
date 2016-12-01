@@ -6,7 +6,7 @@ output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(dev = 'pdf', fig.path = 'Figs/',
+knitr::opts_chunk$set(dev = 'png', fig.path = 'propscore_figs/',
                       fig.width = 8.5, fig.height = 5,
                       echo = TRUE, warnings = FALSE)
 
@@ -88,10 +88,18 @@ It appears that both models are accurate in their prediction. This can be seen i
 lalonde$propscore.log <- predict(model.reduced, type = "response")
 
 ggplot(data = lalonde, aes(propscore.log, fill = factor(TREAT))) +
-  geom_histogram(aes(y = ..density..), alpha = .5, position = "identity")
+  geom_histogram(aes(y = ..density..), alpha = .5, position = "identity") +
+  labs(title = "Propensity Score Density Distribution", y = "Density of Factor", x = "Propensity Score")
 
 ggplot(data = lalonde, aes(propscore.log, fill = factor(TREAT))) +
-  geom_histogram(alpha = .5, position = "identity")
+  geom_histogram(alpha = .5, position = "identity") +
+  labs(title = "Propensity Score Distribution", y = "Count", x = "Propensity Score")
+
+ggplot(data = lalonde, aes(propscore.log, fill = factor(TREAT))) +
+  geom_histogram(alpha = .5, position = "identity") +
+  scale_y_log10() +
+  ylim(0, 175) +
+  labs(title = "Propensity Score Distribution", y = "Log( Count )", x = "Propensity Score")
 
 sum(lalonde$propscore.log > 0.5 & lalonde$TREAT == 0)
 sum(lalonde$propscore.log > 0.5 & lalonde$TREAT == 1)
